@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>주간영업보고 자동화 시스템</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+  <link rel="stylesheet" href="index.css">
+  <style>
+    /* ── 추가 스타일 ── */
+    .client-checkbox-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+    .client-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 2rem;
+      padding: 0.35rem 0.85rem;
+      cursor: pointer;
+      font-size: 0.82rem;
+      color: #c8d8f0;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .client-chip input[type="checkbox"] {
+      accent-color: #7c6fff;
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+    .client-chip:hover {
+      background: rgba(124,111,255,0.2);
+      border-color: #7c6fff;
+      color: #fff;
+    }
+    .client-chip.checked {
+      background: rgba(124,111,255,0.25);
+      border-color: #7c6fff;
+      color: #fff;
+      font-weight: 600;
+    }
+    .chip-select-all {
+      background: rgba(255,255,255,0.12);
+      border: 1px dashed rgba(255,255,255,0.3);
+      font-size: 0.78rem;
+      color: #8ab4f8;
+    }
+    .client-area-empty {
+      color: rgba(255,255,255,0.35);
+      font-size: 0.83rem;
+      margin-top: 0.5rem;
+    }
+    .input-text {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 0.6rem;
+      color: #e8f0ff;
+      padding: 0.55rem 0.9rem;
+      font-size: 0.9rem;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.2s;
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+    .input-text:focus {
+      border-color: #7c6fff;
+    }
+    .input-text::placeholder {
+      color: rgba(255,255,255,0.3);
+    }
+    /* 시트2 테이블 */
+    .s2-category-block { margin-bottom: 1.5rem; }
+    .s2-category-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #a78bfa;
+      padding: 0.3rem 0.7rem;
+      background: rgba(124,111,255,0.15);
+      border-radius: 0.4rem;
+      margin-bottom: 0.5rem;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="glass-bg"></div>
+  <div class="app-container">
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-icon"><i data-lucide="trending-up"></i></div>
+        <h1>Weekly Sales Report <span>Automation</span></h1>
+      </div>
+      <div class="header-actions">
+        <button id="btn-samples" class="btn btn-secondary tooltip-trigger">
+          <i data-lucide="gift"></i>
+          <span>테스트용 샘플 데이터 생성</span>
+          <span class="tooltip-text">가상의 테스트용 파일 3종을 생성/다운로드합니다.</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <!-- Left Panel -->
+      <section class="control-panel">
+
+        <!-- Step 1: 파일 업로드 (5개) -->
+        <div class="panel-card upload-section">
+          <h2 class="section-title"><span class="step-num">1</span> 엑셀 파일 업로드</h2>
+          <div class="upload-grid" style="grid-template-columns: repeat(5, 1fr);">
+            <!-- 원본데이터 -->
+            <div class="upload-box" id="drop-raw">
+              <input type="file" id="file-raw" accept=".xlsx" class="file-input">
+              <i data-lucide="database" class="upload-icon"></i>
+              <h3>원본데이터</h3>
+              <p class="file-desc">원본데이터.xlsx</p>
+              <div class="file-status" id="status-raw">대기 중...</div>
+            </div>
+            <!-- 매출TOP -->
+            <div class="upload-box" id="drop-top">
+              <input type="file" id="file-top" accept=".xlsx" class="file-input">
+              <i data-lucide="award" class="upload-icon"></i>
+              <h3>매출 TOP</h3>
+              <p class="file-desc">매출TOP.xlsx</p>
+              <div class="file-status" id="status-top">대기 중...</div>
+            </div>
+            <!-- Product Master -->
+            <div class="upload-box" id="drop-master">
+              <input type="file" id="file-master" accept=".xlsx" class="file-input">
+              <i data-lucide="tag" class="upload-icon"></i>
+              <h3>Product Master</h3>
+              <p class="file-desc">Product_Master.xlsx</p>
+              <div class="file-status" id="status-master">대기 중...</div>
+            </div>
+            <!-- 담당자-매출처 매핑표 -->
+            <div class="upload-box" id="drop-managermap">
+              <input type="file" id="file-managermap" accept=".xlsx" class="file-input">
+              <i data-lucide="users" class="upload-icon"></i>
+              <h3>담당자-매출처표</h3>
+              <p class="file-desc">담당자매출처.xlsx</p>
+              <div class="file-status" id="status-managermap">대기 중...</div>
+            </div>
+            <!-- 쿠팡로켓 (선택) -->
+            <div class="upload-box" id="drop-coupang">
+              <input type="file" id="file-coupang" accept=".xlsx" class="file-input">
+              <i data-lucide="rocket" class="upload-icon" style="color: #FF5A5F;"></i>
+              <h3>쿠팡로켓 (선택)</h3>
+              <p class="file-desc">쿠팡로켓.xlsx</p>
+              <div class="file-status" id="status-coupang">대기 중...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: 설정 -->
+        <div class="panel-card settings-section">
+          <h2 class="section-title"><span class="step-num">2</span> 옵션 설정</h2>
+
+          <div class="settings-grid">
+            <!-- 담당자 이름 -->
+            <div class="input-group full-width">
+              <label for="input-manager"><i data-lucide="user"></i> 담당자 이름
+                <span style="font-size:0.75rem; opacity:0.6; margin-left:0.5rem;">매핑표 업로드 시 입력하면 해당 매출처 자동 선택</span>
+              </label>
+              <input type="text" id="input-manager" class="input-text" placeholder="예: 홍길동">
+            </div>
+
+            <!-- 날짜 -->
+            <div class="input-group">
+              <label for="start-date"><i data-lucide="calendar"></i> 시작일</label>
+              <input type="date" id="start-date">
+            </div>
+            <div class="input-group">
+              <label for="end-date"><i data-lucide="calendar"></i> 종료일</label>
+              <input type="date" id="end-date">
+            </div>
+
+            <!-- 매출처 선택 -->
+            <div class="input-group full-width">
+              <label><i data-lucide="store"></i> 매출처 선택 (시트1에 포함할 매출처)</label>
+              <div id="client-chip-area">
+                <p class="client-area-empty">원본데이터.xlsx를 업로드하면 매출처 목록이 표시됩니다.</p>
+              </div>
+            </div>
+
+            <!-- 상품군(국내분류) 선택 -->
+            <div class="input-group full-width">
+              <label><i data-lucide="tag"></i> 시트2 국내분류 필터 (시트2에 포함할 항목)</label>
+              <div id="category-chip-area">
+                <p class="client-area-empty">Product_Master.xlsx를 업로드하면 항목이 표시됩니다.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="action-bar">
+            <button id="btn-run" class="btn btn-primary" disabled>
+              <i data-lucide="play"></i>
+              <span>보고서 자동 작성 실행</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 결과 다운로드 -->
+        <div class="panel-card download-section hidden" id="result-card">
+          <div class="success-message">
+            <div class="success-icon"><i data-lucide="check-circle-2"></i></div>
+            <div>
+              <h3>보고서 생성 완료!</h3>
+              <p>연산이 성공적으로 수행되었습니다.</p>
+            </div>
+          </div>
+          <button id="btn-download" class="btn btn-success btn-large">
+            <i data-lucide="download"></i>
+            <span>주간영업보고.xlsx 다운로드</span>
+          </button>
+        </div>
+
+        <!-- 에러 섹션 -->
+        <div class="panel-card error-section hidden" id="error-card">
+          <div class="error-message">
+            <div class="error-icon"><i data-lucide="alert-triangle"></i></div>
+            <div>
+              <h3>보고서 생성 실패</h3>
+              <p id="error-message-text">오류가 발생했습니다.</p>
+            </div>
+          </div>
+          <div class="error-details-box">
+            <pre id="error-stack-text"></pre>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Panel: Preview -->
+      <section class="preview-panel">
+        <div class="panel-card preview-card">
+          <div class="preview-header">
+            <h2 class="section-title"><i data-lucide="eye"></i> 실시간 데이터 프리뷰</h2>
+            <div class="preview-tabs">
+              <button class="tab-btn active" data-tab="tab-sheet1">시트1: 주간 영업보고</button>
+              <button class="tab-btn" data-tab="tab-sheet2">시트2: 상품 판매현황</button>
+            </div>
+          </div>
+
+          <div class="preview-content">
+            <!-- Sheet 1 Preview -->
+            <div class="tab-panel active" id="tab-sheet1">
+              <div class="preview-meta">
+                <span class="meta-label">기간:</span> <span id="pv-sdate">-</span> ~ <span id="pv-edate">-</span>
+                &nbsp;|&nbsp;
+                <span class="meta-label">담당자:</span> <span id="pv-manager">-</span>
+              </div>
+              <div class="table-container">
+                <table class="preview-table" id="table-sheet1">
+                  <thead>
+                    <tr>
+                      <th style="width:200px;">매출처</th>
+                      <th>주문건수</th>
+                      <th>주문수량</th>
+                      <th>매출금액</th>
+                      <th>평균판가</th>
+                      <th>영업내용</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td colspan="6" class="empty-preview">보고서를 실행하면 결과가 표시됩니다.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Sheet 2 Preview -->
+            <div class="tab-panel" id="tab-sheet2">
+              <div class="preview-meta">
+                <span class="meta-label">상품군별 매출처 판매현황</span>
+              </div>
+              <div id="sheet2-preview-body">
+                <p class="client-area-empty">보고서를 실행하면 결과가 표시됩니다.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay hidden" id="loading-overlay">
+    <div class="spinner-box">
+      <div class="spinner"></div>
+      <p id="loading-text">엑셀 파일 처리 중...</p>
+    </div>
+  </div>
+
+  <script src="sample_generator.js"></script>
+  <script src="app.js"></script>
+  <script>
+    lucide.createIcons();
+
+    // DOM 캐시
+    const inputManager    = document.getElementById('input-manager');
+    const startDateInput  = document.getElementById('start-date');
+    const endDateInput    = document.getElementById('end-date');
+    const btnRun          = document.getElementById('btn-run');
+    const btnDownload     = document.getElementById('btn-download');
+    const resultCard      = document.getElementById('result-card');
+    const btnSamples      = document.getElementById('btn-samples');
+    const loadingOverlay  = document.getElementById('loading-overlay');
+    const loadingText     = document.getElementById('loading-text');
+    const clientChipArea  = document.getElementById('client-chip-area');
+    const categoryChipArea = document.getElementById('category-chip-area'); // 카테고리 칩 영역
+
+    let generatedResult = null;
+
+    // 기본 날짜 채우기
+    const today = new Date();
+    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    startDateInput.value = lastWeek.toISOString().substring(0, 10);
+    endDateInput.value   = today.toISOString().substring(0, 10);
+
+    // ── 파일 업로드 설정 ──
+    const fileConfigs = [
+      { dropId: 'drop-raw',        inputId: 'file-raw',        statusId: 'status-raw',        key: 'rawData' },
+      { dropId: 'drop-top',        inputId: 'file-top',        statusId: 'status-top',        key: 'topSales' },
+      { dropId: 'drop-master',     inputId: 'file-master',     statusId: 'status-master',     key: 'productMaster' },
+      { dropId: 'drop-managermap', inputId: 'file-managermap', statusId: 'status-managermap', key: 'managerMap' },
+      { dropId: 'drop-coupang',    inputId: 'file-coupang',    statusId: 'status-coupang',    key: 'coupang' }
+    ];
+
+    fileConfigs.forEach(cfg => {
+      const drop   = document.getElementById(cfg.dropId);
+      const input  = document.getElementById(cfg.inputId);
+      const status = document.getElementById(cfg.statusId);
+
+      drop.addEventListener('click', () => input.click());
+      drop.addEventListener('dragover',  e => { e.preventDefault(); drop.classList.add('dragover'); });
+      drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+      drop.addEventListener('drop', async e => {
+        e.preventDefault(); drop.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) await handleFile(e.dataTransfer.files[0], cfg, drop, status);
+      });
+      input.addEventListener('change', async e => {
+        if (input.files.length > 0) await handleFile(input.files[0], cfg, drop, status);
+      });
+    });
+
+    async function handleFile(file, cfg, drop, status) {
+      status.innerText = '읽는 중...';
+      status.className = 'file-status status-loading';
+      drop.classList.add('loaded');
+      try {
+        const buffer = await readFileAsArrayBuffer(file);
+        uploadedData[cfg.key] = buffer;
+        const sizeKB = (file.size / 1024).toFixed(1);
+        status.innerHTML = `<span class="status-ok"><i data-lucide="check" style="width:14px;height:14px;vertical-align:middle;"></i> 완료 (${sizeKB}KB)</span>`;
+        status.className = 'file-status status-success';
+        lucide.createIcons();
+
+        if (cfg.key === 'rawData') {
+          await populateClientChips(buffer);
+        }
+        if (cfg.key === 'productMaster') {
+          await populateCategoryChips(buffer);
+        }
+        if (cfg.key === 'managerMap') {
+          await parseManagerMap(buffer);
+        }
+        checkEnableRun();
+      } catch (err) {
+        console.error(err);
+        status.innerText = '에러 발생';
+        status.className = 'file-status status-error';
+        drop.classList.remove('loaded');
+      }
+    }
+
+    // 원본데이터에서 매출처 목록 추출 → 칩 생성
+    async function populateClientChips(buffer) {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer);
+      const sheet = wb.worksheets[0];
+      const clientSet = new Set();
+
+      // 헤더 행에서 '매출처' 열 인덱스 찾기 (기본 G열=7)
+      let clientColIdx = 7;
+      const headerRow = sheet.getRow(1);
+      headerRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
+        const v = String(cell.value || '').trim().toLowerCase();
+        if (v === '매출처' || v === '고객사' || v === '판매처') {
+          clientColIdx = colNum;
+        }
+      });
+
+      sheet.eachRow((row, rowNum) => {
+        if (rowNum === 1) return;
+        const val = String(row.getCell(clientColIdx).value || '').trim();
+        if (val && val !== 'null') clientSet.add(val);
+      });
+
+
+      clientChipArea.innerHTML = '';
+      if (clientSet.size === 0) {
+        clientChipArea.innerHTML = '<p class="client-area-empty">매출처를 찾지 못했습니다.</p>';
+        return;
+      }
+
+      // 전체선택 칩
+      const allChip = document.createElement('label');
+      allChip.className = 'client-chip chip-select-all';
+      allChip.innerHTML = `<input type="checkbox" id="chk-all"> 전체선택`;
+      allChip.querySelector('input').addEventListener('change', e => {
+        document.querySelectorAll('.client-chip-item input').forEach(cb => {
+          cb.checked = e.target.checked;
+          cb.closest('.client-chip').classList.toggle('checked', e.target.checked);
+        });
+        checkEnableRun();
+      });
+      clientChipArea.appendChild(allChip);
+
+      clientSet.forEach(client => {
+        const lbl = document.createElement('label');
+        lbl.className = 'client-chip client-chip-item';
+        lbl.innerHTML = `<input type="checkbox" value="${client}" checked> ${client}`;
+        lbl.querySelector('input').addEventListener('change', e => {
+          lbl.classList.toggle('checked', e.target.checked);
+          checkEnableRun();
+        });
+        lbl.classList.add('checked'); // 기본 체크
+        clientChipArea.appendChild(lbl);
+      });
+      checkEnableRun();
+    }
+
+    // ── Product_Master에서 국내분류 목록 추출 → 칩 생성 ──
+    async function populateCategoryChips(buffer) {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer);
+      const sheet = wb.worksheets[0];
+      const catSet = new Set();
+
+      let catColIdx = 6;
+      const headerRow = sheet.getRow(1);
+      if (headerRow) {
+        headerRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
+          const v = String(cell.value || '').trim().toLowerCase();
+          if (v === '국내분류' || v === '카테고리' || v === '분류') {
+            catColIdx = colNum;
+          }
+        });
+      }
+
+      sheet.eachRow((row, rowNum) => {
+        if (rowNum === 1) return;
+        const val = String(row.getCell(catColIdx).value || '').trim();
+        if (val && val !== 'null') catSet.add(val);
+      });
+
+      categoryChipArea.innerHTML = '';
+      if (catSet.size === 0) {
+        categoryChipArea.innerHTML = '<p class="client-area-empty">분류 항목을 찾지 못했습니다.</p>';
+        return;
+      }
+
+      // 전체선택 칩
+      const allChip = document.createElement('label');
+      allChip.className = 'client-chip chip-select-all';
+      allChip.innerHTML = `<input type="checkbox" id="chk-all-cat"> 전체선택`;
+      allChip.querySelector('input').addEventListener('change', e => {
+        document.querySelectorAll('.cat-chip-item input').forEach(cb => {
+          cb.checked = e.target.checked;
+          cb.closest('.client-chip').classList.toggle('checked', e.target.checked);
+        });
+        checkEnableRun();
+      });
+      categoryChipArea.appendChild(allChip);
+
+      // 개별 카테고리 칩 정렬 후 추가
+      Array.from(catSet).sort().forEach(cat => {
+        const lbl = document.createElement('label');
+        lbl.className = 'client-chip cat-chip-item';
+        lbl.innerHTML = `<input type="checkbox" value="${cat}" checked> ${cat}`;
+        lbl.querySelector('input').addEventListener('change', e => {
+          lbl.classList.toggle('checked', e.target.checked);
+          checkEnableRun();
+        });
+        lbl.classList.add('checked');
+        categoryChipArea.appendChild(lbl);
+      });
+      checkEnableRun();
+    }
+
+    // ── 담당자-매출처 매핑표 파싱 ──
+    // 형식: A열=담당자, B열=매출처, C열=순위 (1행은 헤더)
+    let managerClientMap = {}; // { '홍길동': ['무신사', '29CM'], ... }
+    let clientRankMap = {};    // { '무신사': 1, '29CM': 2, ... }
+
+    async function parseManagerMap(buffer) {
+      managerClientMap = {};
+      clientRankMap = {};
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer);
+      const sheet = wb.worksheets[0];
+
+      // 헤더에서 열 인덱스 자동 탐지
+      let mgrCol = 1, clientCol = 2, rankCol = 3;
+      const hRow = sheet.getRow(1);
+      if (hRow) {
+        hRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
+          const v = String(cell.value || '').trim();
+          if (v === '담당자' || v === '담당') mgrCol = colNum;
+          if (v === '매출처' || v === '고객사') clientCol = colNum;
+          if (v === '순위' || v === '우선순위' || v === '순서') rankCol = colNum;
+        });
+      }
+
+      sheet.eachRow((row, rowNum) => {
+        if (rowNum === 1) return;
+        const mgr    = String(row.getCell(mgrCol).value    || '').trim();
+        const client = String(row.getCell(clientCol).value || '').trim();
+        const rank   = parseInt(row.getCell(rankCol).value, 10) || 9999;
+
+        if (!mgr || !client) return;
+        if (!managerClientMap[mgr]) managerClientMap[mgr] = [];
+        managerClientMap[mgr].push(client);
+        clientRankMap[client] = rank;
+      });
+
+      console.log('[매핑표] 파싱 완료:', managerClientMap, clientRankMap);
+
+      // 매핑표가 올라오면 담당자 입력창 힌트 업데이트
+      const managers = Object.keys(managerClientMap);
+      inputManager.placeholder = managers.length > 0
+        ? `담당자 입력 (예: ${managers[0]})`
+        : '예: 홍길동';
+    }
+
+    // ── 담당자 입력 시 매출처 자동 체크 ──
+    inputManager.addEventListener('input', () => {
+      const name = inputManager.value.trim();
+      const mappedClients = managerClientMap[name] || [];
+
+      if (mappedClients.length > 0) {
+        // 매핑된 매출처만 체크
+        document.querySelectorAll('.client-chip-item input').forEach(cb => {
+          const isMatch = mappedClients.includes(cb.value);
+          cb.checked = isMatch;
+          cb.closest('.client-chip').classList.toggle('checked', isMatch);
+        });
+      }
+      checkEnableRun();
+    });
+
+    function getSelectedClients() {
+      return [...document.querySelectorAll('.client-chip-item input:checked')].map(cb => cb.value);
+    }
+
+    function getSelectedCategories() {
+      return [...document.querySelectorAll('.cat-chip-item input:checked')].map(cb => cb.value);
+    }
+
+    function checkEnableRun() {
+      const filesOk  = uploadedData.rawData && uploadedData.topSales && uploadedData.productMaster;
+      const dateOk   = startDateInput.value && endDateInput.value;
+      const clientOk = getSelectedClients().length > 0;
+      const catOk    = getSelectedCategories().length > 0;
+      btnRun.disabled = !(filesOk && dateOk && clientOk && catOk);
+    }
+
+    startDateInput.addEventListener('change', checkEnableRun);
+    endDateInput.addEventListener('change', checkEnableRun);
+    // 담당자 입력 이벤트는 inputManager.addEventListener('input', ...) 에서 이미 처리
+
+    // ── 실행 버튼 ──
+    btnRun.addEventListener('click', async () => {
+      showLoading('데이터 처리 및 보고서 생성 중...');
+      document.getElementById('error-card').classList.add('hidden');
+      resultCard.classList.add('hidden');
+      try {
+        const selected = getSelectedClients();
+        
+        // 매핑표의 순위(C열) 기준으로 선택된 매출처 정렬
+        selected.sort((a, b) => {
+          const rankA = clientRankMap[a] !== undefined ? clientRankMap[a] : 9999;
+          const rankB = clientRankMap[b] !== undefined ? clientRankMap[b] : 9999;
+          return rankA - rankB;
+        });
+
+        const result = await processFilesAndGenerate({
+          startDate:       startDateInput.value,
+          endDate:         endDateInput.value,
+          managerName:     inputManager.value.trim() || '담당자',
+          selectedClients: selected,
+          clientRankMap:   clientRankMap,
+          selectedCategories: getSelectedCategories()
+        });
+        generatedResult = result;
+        resultCard.classList.remove('hidden');
+        renderPreview(result);
+        hideLoading();
+        resultCard.scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        hideLoading();
+        console.error(err);
+        document.getElementById('error-message-text').innerText = err.message || '알 수 없는 에러';
+        document.getElementById('error-stack-text').innerText   = err.stack || '';
+        document.getElementById('error-card').classList.remove('hidden');
+        lucide.createIcons();
+        document.getElementById('error-card').scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+
+    // ── 다운로드 버튼 ──
+    btnDownload.addEventListener('click', () => {
+      if (generatedResult && generatedResult.buffer) {
+        const manager = inputManager.value.trim() || '담당자';
+        downloadBlob(generatedResult.buffer, `주간영업보고_${manager}_${startDateInput.value}.xlsx`);
+      }
+    });
+
+    // ── 샘플 파일 생성 ──
+    btnSamples.addEventListener('click', async () => {
+      showLoading('샘플 파일 생성 중...');
+      try {
+        const rBuf = await generateSampleRawData();
+        downloadBlob(rBuf, '원본데이터.xlsx');
+        const topBuf = await generateSampleTopSales();
+        downloadBlob(topBuf, '매출TOP.xlsx');
+        const mBuf = await generateSampleProductMaster();
+        downloadBlob(mBuf, 'Product_Master.xlsx');
+        const mmBuf = await generateSampleManagerMap();
+        downloadBlob(mmBuf, '담당자매출처.xlsx');
+        const cpBuf = await generateSampleCoupang();
+        downloadBlob(cpBuf, '쿠팡로켓.xlsx');
+        hideLoading();
+        alert('샘플 파일 5종이 다운로드되었습니다.\n\n• 원본데이터.xlsx\n• 매출TOP.xlsx\n• Product_Master.xlsx\n• 담당자매출처.xlsx\n• 쿠팡로켓.xlsx\n\n업로드하여 테스트해보세요!');
+      } catch (e) {
+        hideLoading();
+        alert('샘플 생성 에러: ' + e.message);
+      }
+    });
+
+
+    // ── 프리뷰 렌더링 ──
+    function renderPreview(result) {
+      const fmt = n => Math.round(n).toLocaleString('ko-KR');
+
+      // 시트1 메타
+      document.getElementById('pv-sdate').innerText   = result.meta.startDate;
+      document.getElementById('pv-edate').innerText   = result.meta.endDate;
+      document.getElementById('pv-manager').innerText = result.meta.managerName;
+
+      // 시트1 테이블
+      const s1Body = document.querySelector('#table-sheet1 tbody');
+      s1Body.innerHTML = '';
+      result.sheet1Rows.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${row.client}</strong></td>
+          <td>${fmt(row.orderCount)}</td>
+          <td>${fmt(row.qty)}</td>
+          <td>${fmt(row.amount)}</td>
+          <td>${fmt(row.qty > 0 ? Math.round(row.amount / row.qty) : 0)}</td>
+          <td style="color:rgba(255,255,255,0.3); font-style:italic;">— 직접 기재 —</td>
+        `;
+        s1Body.appendChild(tr);
+      });
+      if (result.sheet1Rows.length === 0) {
+        s1Body.innerHTML = '<tr><td colspan="6" class="empty-preview">해당 조건에 맞는 데이터가 없습니다.</td></tr>';
+      }
+
+      // 시트2 프리뷰
+      const s2Body = document.getElementById('sheet2-preview-body');
+      s2Body.innerHTML = '';
+      if (!result.sheet2Data || result.sheet2Data.length === 0) {
+        s2Body.innerHTML = '<p class="client-area-empty">매출TOP 데이터가 없습니다.</p>';
+        return;
+      }
+      // 카테고리별로 그룹화
+      const catGroups = {};
+      result.sheet2Data.forEach(r => {
+        if (!catGroups[r.category]) catGroups[r.category] = [];
+        catGroups[r.category].push(r);
+      });
+      Object.entries(catGroups).forEach(([cat, rows]) => {
+        const block = document.createElement('div');
+        block.className = 's2-category-block';
+        let html = `<div class="s2-category-title">📦 ${cat}</div>`;
+        html += `<div class="table-container"><table class="preview-table">
+          <thead><tr><th>매출처</th><th>판매수량</th><th>판매금액</th></tr></thead><tbody>`;
+        rows.forEach(r => {
+          html += `<tr><td>${r.client}</td><td>${fmt(r.qty)}</td><td>${fmt(r.amount)}</td></tr>`;
+        });
+        html += '</tbody></table></div>';
+        block.innerHTML = html;
+        s2Body.appendChild(block);
+      });
+    }
+
+    // ── 탭 토글 ──
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.getAttribute('data-tab')).classList.add('active');
+      });
+    });
+
+    function showLoading(msg) { loadingText.innerText = msg; loadingOverlay.classList.remove('hidden'); }
+    function hideLoading()    { loadingOverlay.classList.add('hidden'); }
+  </script>
+</body>
+</html>
